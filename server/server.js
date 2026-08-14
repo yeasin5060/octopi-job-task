@@ -1,14 +1,14 @@
 import express from 'express';
 import 'dotenv/config';
 import cors from 'cors';
-
+import connectDB from './src/db/db.js';
 
 
 
 const app = express();
 
 //Database connection
-//await connectDB()
+await connectDB()
 
 app.use(cors({
     origin : "*",
@@ -17,7 +17,6 @@ app.use(cors({
 }));
 
 
-//app.use('/uploads' , express.static(path.join(_dirname,'uploads'), {}))
 
 app.get("/", (req, res) => {res.send("Server is live!");});
 
