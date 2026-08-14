@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { User } from "../models/user.model.js";
+import { PasswordReset } from "../models/passwordReset.model.js";
 
 
 const generateToken = (user) => {
