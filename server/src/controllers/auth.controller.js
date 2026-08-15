@@ -1,9 +1,20 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { User } from "../models/user.model.js";
-import { PasswordReset } from "../models/passwordReset.model.js";
+import Stripe from "stripe";
 
+import {User} from "../models/user.model.js";
+import {Plan} from "../models/plan.model.js";
+import {PasswordReset} from "../models/passwordReset.model.js";
+import { PendingRegistration } from "../models/pendingRegistration.model.js";
+
+const stripe = new Stripe(
+  process.env.STRIPE_SECRET_KEY
+);
+
+// ==========================================
+// Generate JWT
+// ==========================================
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -19,12 +30,210 @@ const generateToken = (user) => {
   );
 };
 
+// ==========================================
+// Register
+// ==========================================
+
+export const register = async (req, res, next) => {
+  try {
+    const {
+      organizationName,
+      adminName,
+      email,
+      password,
+      planId,
+    } = req.body;
+
+    // -----------------------------
+    // Validate fields
+    // -----------------------------
+
+    if (
+      !organizationName ||
+      !adminName ||
+      !email ||
+      !password ||
+      !planId
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Password must be at least 6 characters",
+      });
+    }
+
+    const normalizedEmail =
+      email.toLowerCase().trim();
+
+    // -----------------------------
+    // Check existing user
+    // -----------------------------
+
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already registered",
+      });
+    }
+
+    // -----------------------------
+    // Check Plan
+    // -----------------------------
+
+    const plan = await Plan.findOne({
+      _id: planId,
+      isActive: true,
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: "Selected plan not found",
+      });
+    }
+
+    // -----------------------------
+    // Hash Password
+    // -----------------------------
+
+    const hashedPassword =
+      await bcrypt.hash(password, 12);
+
+    // -----------------------------
+    // Create Pending Registration
+    // -----------------------------
+
+    const pendingRegistration =
+      await PendingRegistration.create({
+        organizationName:
+          organizationName.trim(),
+
+        adminName: adminName.trim(),
+
+        email: normalizedEmail,
+
+        password: hashedPassword,
+
+        planId: plan._id,
+
+        expiresAt: new Date(
+          Date.now() + 30 * 60 * 1000
+        ),
+      });
+
+    // -----------------------------
+    // Create Stripe Checkout
+    // -----------------------------
+
+    const checkoutSession =
+      await stripe.checkout.sessions.create({
+        mode: "subscription",
+
+        customer_email: normalizedEmail,
+
+        line_items: [
+          {
+            price_data: {
+              currency: plan.currency,
+
+              product_data: {
+                name: plan.name,
+              },
+
+              unit_amount: Math.round(
+                plan.price * 100
+              ),
+
+              recurring: {
+                interval:
+                  plan.billingInterval ===
+                  "YEARLY"
+                    ? "year"
+                    : "month",
+              },
+            },
+
+            quantity: 1,
+          },
+        ],
+
+        metadata: {
+          pendingRegistrationId:
+            pendingRegistration._id.toString(),
+
+          planId: plan._id.toString(),
+        },
+
+        success_url:
+          `${process.env.CLIENT_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+
+        cancel_url:
+          `${process.env.CLIENT_URL}/payment/cancel`,
+      });
+
+    // -----------------------------
+    // Save Stripe Session ID
+    // -----------------------------
+
+    pendingRegistration.stripeCheckoutSessionId =
+      checkoutSession.id;
+
+    await pendingRegistration.save();
+
+    // -----------------------------
+    // Response
+    // -----------------------------
+
+    return res.status(201).json({
+      success: true,
+
+      message:
+        "Registration created. Please complete payment.",
+
+      checkoutUrl: checkoutSession.url,
+
+      registrationId:
+        pendingRegistration._id,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ==========================================
+// Login
+// ==========================================
+
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
+    // Validate
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Email and password are required",
+      });
+    }
+
+    const normalizedEmail =
+      email.toLowerCase().trim();
+
+    // Find user
     const user = await User.findOne({
-      email: email.toLowerCase(),
+      email: normalizedEmail,
     }).select("+password");
 
     if (!user) {
@@ -34,6 +243,7 @@ export const login = async (req, res, next) => {
       });
     }
 
+    // Compare password
     const isMatch = await bcrypt.compare(
       password,
       user.password
@@ -46,6 +256,7 @@ export const login = async (req, res, next) => {
       });
     }
 
+    // Check user status
     if (user.status !== "ACTIVE") {
       return res.status(403).json({
         success: false,
@@ -53,20 +264,25 @@ export const login = async (req, res, next) => {
       });
     }
 
+    // Update login time
     user.lastLoginAt = new Date();
+
     await user.save();
 
+    // Generate JWT
     const token = generateToken(user);
 
-    res.json({
+    return res.status(200).json({
       success: true,
       token,
+
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-        organizationId: user.organizationId,
+        organizationId:
+          user.organizationId,
       },
     });
   } catch (error) {
@@ -74,12 +290,20 @@ export const login = async (req, res, next) => {
   }
 };
 
+// ==========================================
+// Get Current User
+// ==========================================
+
 export const me = async (req, res) => {
-  res.json({
+  return res.status(200).json({
     success: true,
     user: req.user,
   });
 };
+
+// ==========================================
+// Forgot Password
+// ==========================================
 
 export const forgotPassword = async (
   req,
@@ -89,36 +313,148 @@ export const forgotPassword = async (
   try {
     const { email } = req.body;
 
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    const normalizedEmail =
+      email.toLowerCase().trim();
+
     const user = await User.findOne({
-      email: email.toLowerCase(),
+      email: normalizedEmail,
     });
 
-    // Do not leak whether email exists
+    // Don't reveal whether email exists
     if (!user) {
-      return res.json({
+      return res.status(200).json({
         success: true,
         message:
           "If the email exists, a reset link has been sent.",
       });
     }
 
+    // Delete previous reset tokens
+    await PasswordReset.deleteMany({
+      userId: user._id,
+    });
+
+    // Generate token
     const token = crypto
       .randomBytes(32)
       .toString("hex");
 
+    // Save reset token
     await PasswordReset.create({
       userId: user._id,
+
       token,
+
       expiresAt: new Date(
         Date.now() + 15 * 60 * 1000
       ),
     });
 
-    // send reset email here
+    // TODO:
+    // Send email using Nodemailer / Resend
+    //
+    // const resetUrl =
+    // `${process.env.CLIENT_URL}/reset-password/${token}`;
 
-    res.json({
+    return res.status(200).json({
       success: true,
-      message: "Password reset email sent",
+      message:
+        "If the email exists, a reset link has been sent.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ==========================================
+// Reset Password
+// ==========================================
+
+export const resetPassword = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Reset token is required",
+      });
+    }
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "New password is required",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Password must be at least 6 characters",
+      });
+    }
+
+    // Find valid token
+    const resetRequest =
+      await PasswordReset.findOne({
+        token,
+        expiresAt: {
+          $gt: new Date(),
+        },
+        usedAt: null,
+      });
+
+    if (!resetRequest) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid or expired reset token",
+      });
+    }
+
+    // Find user
+    const user = await User.findById(
+      resetRequest.userId
+    ).select("+password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Hash new password
+    const hashedPassword =
+      await bcrypt.hash(password, 12);
+
+    user.password = hashedPassword;
+
+    await user.save();
+
+    // Mark token as used
+    resetRequest.usedAt = new Date();
+
+    await resetRequest.save();
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Password reset successfully",
     });
   } catch (error) {
     next(error);

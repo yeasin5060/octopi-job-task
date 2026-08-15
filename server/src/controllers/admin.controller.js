@@ -71,3 +71,69 @@ export const getStats = async (req,res,next) => {
     next(error);
   }
 };
+
+
+export const updateOrganizationStatus = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const { status } = req.body;
+    const { id } = req.params;
+
+    // Allowed status
+    const allowedStatuses = [
+      "ACTIVE",
+      "SUSPENDED",
+    ];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid organization status",
+      });
+    }
+
+    // Find organization
+    const organization =
+      await Organization.findById(id);
+
+    if (!organization) {
+      return res.status(404).json({
+        success: false,
+        message: "Organization not found",
+      });
+    }
+
+    // Prevent unnecessary update
+    if (organization.status === status) {
+      return res.status(400).json({
+        success: false,
+        message: `Organization is already ${status}`,
+      });
+    }
+
+    // Update status
+    organization.status = status;
+
+    await organization.save();
+
+    return res.status(200).json({
+      success: true,
+      message:
+        status === "SUSPENDED"
+          ? "Organization suspended successfully"
+          : "Organization reactivated successfully",
+
+      organization: {
+        id: organization._id,
+        name: organization.name,
+        status: organization.status,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};

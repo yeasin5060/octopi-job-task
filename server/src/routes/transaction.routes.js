@@ -6,7 +6,7 @@ import {
 
 
 
-import { authorize } from "../middleware/role.middleware.js";
+import { authorize } from "../middlewares/role.middleware.js";
 import { protect } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
