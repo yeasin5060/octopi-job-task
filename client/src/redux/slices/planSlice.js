@@ -10,7 +10,7 @@ export const fetchPlans = createAsyncThunk(
   "plans/fetchPlans",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await api.get("/plans");
+      const { data } = await api.get("/api/plans");
 
       return data.plans;
     } catch (error) {
@@ -28,7 +28,7 @@ export const createPlan = createAsyncThunk(
   async (planData, { rejectWithValue }) => {
     try {
       const { data } = await api.post(
-        "/plans",
+        "/api/plans",
         planData
       );
 

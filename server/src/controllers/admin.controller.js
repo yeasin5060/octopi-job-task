@@ -4,73 +4,151 @@ import { Payment } from "../models/payment.model.js";
 import { Subscription } from "../models/subscription.model.js";
 import { User } from "../models/user.model.js";
 import {Transaction} from '../models/transaction.model.js'
+import jwt from "jsonwebtoken";
 
-export const getStats = async (req,res,next) => {
-  try {
-    const [
-      totalOrganizations,
-      totalUsers,
-      activeSubscriptions,
-      successfulPayments,
-      failedPayments,
-    ] = await Promise.all([
-      Organization.countDocuments(),
+import bcrypt from "bcryptjs";
 
-      User.countDocuments(),
 
-      Subscription.countDocuments({
+
+// ==========================================
+// Create Platform Admin
+// ==========================================
+
+export const createPlatformAdmin = async (req, res, next) => {
+    try {
+      const {
+        name,
+        email,
+        password,
+      } = req.body;
+
+      if (!name || !email || !password) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Name, email and password are required",
+        });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Password must be at least 6 characters",
+        });
+      }
+
+      const normalizedEmail =
+        email.toLowerCase().trim();
+
+      const existingUser =
+        await User.findOne({
+          email: normalizedEmail,
+        });
+
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "Email already registered",
+        });
+      }
+
+      const hashedPassword =
+        await bcrypt.hash(password, 12);
+
+      const admin = await User.create({
+        name: name.trim(),
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: "PLATFORM_ADMIN",
         status: "ACTIVE",
-      }),
+        organizationId: null,
+      });
 
-      Payment.countDocuments({
-        status: "SUCCESS",
-      }),
-
-      Payment.countDocuments({
-        status: "FAILED",
-      }),
-    ]);
-
-    const revenueResult =
-      await Payment.aggregate([
-        {
-          $match: {
-            status: "SUCCESS",
-          },
+      return res.status(201).json({
+        success: true,
+        message:
+          "Platform Admin created successfully",
+        user: {
+          id: admin._id,
+          name: admin.name,
+          email: admin.email,
+          role: admin.role,
+          status: admin.status,
         },
-        {
-          $group: {
-            _id: null,
-            totalRevenue: {
-              $sum: "$amount",
-            },
-          },
-        },
-      ]);
+      });
+    } catch (error) {
+      next(error);
+    }
+};
 
-    const recentSignups =
-      await Organization.find()
-        .sort({ createdAt: -1 })
-        .limit(10);
 
-    res.json({
-      success: true,
+// ==========================================
+// Dashboard Stats
+// ==========================================
 
-      stats: {
+export const getDashboardStats =
+  async (req, res, next) => {
+    try {
+      const [
         totalOrganizations,
         totalUsers,
         activeSubscriptions,
-        successfulPayments,
+        totalRevenue,
         failedPayments,
-        totalRevenue:
-          revenueResult[0]?.totalRevenue || 0,
         recentSignups,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+      ] = await Promise.all([
+        Organization.countDocuments(),
+
+        User.countDocuments(),
+
+        Subscription.countDocuments({
+          status: "ACTIVE",
+        }),
+
+        Payment.aggregate([
+          {
+            $match: {
+              status: "SUCCESS",
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              total: {
+                $sum: "$amount",
+              },
+            },
+          },
+        ]),
+
+        Payment.countDocuments({
+          status: "FAILED",
+        }),
+
+        Organization.find()
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .select("name status createdAt"),
+      ]);
+
+      return res.json({
+        success: true,
+        stats: {
+          totalOrganizations,
+          totalUsers,
+          activeSubscriptions,
+          totalRevenue:
+            totalRevenue[0]?.total || 0,
+          failedPayments,
+          recentSignups,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 
 
 export const updateOrganizationStatus = async (

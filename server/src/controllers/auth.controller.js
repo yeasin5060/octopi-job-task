@@ -44,9 +44,9 @@ export const register = async (req, res, next) => {
       planId,
     } = req.body;
 
-    // -----------------------------
-    // Validate fields
-    // -----------------------------
+    // ==========================================
+    // Validate
+    // ==========================================
 
     if (
       !organizationName ||
@@ -72,9 +72,9 @@ export const register = async (req, res, next) => {
     const normalizedEmail =
       email.toLowerCase().trim();
 
-    // -----------------------------
-    // Check existing user
-    // -----------------------------
+    // ==========================================
+    // Check Existing User
+    // ==========================================
 
     const existingUser = await User.findOne({
       email: normalizedEmail,
@@ -87,9 +87,9 @@ export const register = async (req, res, next) => {
       });
     }
 
-    // -----------------------------
+    // ==========================================
     // Check Plan
-    // -----------------------------
+    // ==========================================
 
     const plan = await Plan.findOne({
       _id: planId,
@@ -103,57 +103,80 @@ export const register = async (req, res, next) => {
       });
     }
 
-    // -----------------------------
+    console.log("PLAN:", {
+      id: plan._id,
+      name: plan.name,
+      price: plan.price,
+      currency: plan.currency,
+      interval: plan.billingInterval,
+    });
+
+    // ==========================================
     // Hash Password
-    // -----------------------------
+    // ==========================================
 
     const hashedPassword =
       await bcrypt.hash(password, 12);
 
-    // -----------------------------
+    // ==========================================
     // Create Pending Registration
-    // -----------------------------
+    // ==========================================
 
     const pendingRegistration =
       await PendingRegistration.create({
         organizationName:
           organizationName.trim(),
 
-        adminName: adminName.trim(),
+        adminName:
+          adminName.trim(),
 
-        email: normalizedEmail,
+        email:
+          normalizedEmail,
 
-        password: hashedPassword,
+        password:
+          hashedPassword,
 
-        planId: plan._id,
+        planId:
+          plan._id,
 
-        expiresAt: new Date(
-          Date.now() + 30 * 60 * 1000
-        ),
+        expiresAt:
+          new Date(
+            Date.now() +
+              30 * 60 * 1000
+          ),
       });
 
-    // -----------------------------
+    console.log(
+      "Pending Registration Created:",
+      pendingRegistration._id
+    );
+
+    // ==========================================
     // Create Stripe Checkout
-    // -----------------------------
+    // ==========================================
 
     const checkoutSession =
       await stripe.checkout.sessions.create({
         mode: "subscription",
 
-        customer_email: normalizedEmail,
+        customer_email:
+          normalizedEmail,
 
         line_items: [
           {
             price_data: {
-              currency: plan.currency,
+              currency:
+                plan.currency.toLowerCase(),
 
               product_data: {
-                name: plan.name,
+                name:
+                  plan.name,
               },
 
-              unit_amount: Math.round(
-                plan.price * 100
-              ),
+              unit_amount:
+                Math.round(
+                  Number(plan.price) * 100
+                ),
 
               recurring: {
                 interval:
@@ -172,7 +195,8 @@ export const register = async (req, res, next) => {
           pendingRegistrationId:
             pendingRegistration._id.toString(),
 
-          planId: plan._id.toString(),
+          planId:
+            plan._id.toString(),
         },
 
         success_url:
@@ -182,18 +206,27 @@ export const register = async (req, res, next) => {
           `${process.env.CLIENT_URL}/payment/cancel`,
       });
 
-    // -----------------------------
+    console.log(
+      "Stripe Checkout Created:",
+      checkoutSession.id
+    );
+
+    // ==========================================
     // Save Stripe Session ID
-    // -----------------------------
+    // ==========================================
 
     pendingRegistration.stripeCheckoutSessionId =
       checkoutSession.id;
 
     await pendingRegistration.save();
 
-    // -----------------------------
+    console.log(
+      "Stripe Session Saved"
+    );
+
+    // ==========================================
     // Response
-    // -----------------------------
+    // ==========================================
 
     return res.status(201).json({
       success: true,
@@ -201,16 +234,23 @@ export const register = async (req, res, next) => {
       message:
         "Registration created. Please complete payment.",
 
-      checkoutUrl: checkoutSession.url,
+      checkoutUrl:
+        checkoutSession.url,
 
       registrationId:
         pendingRegistration._id,
     });
+
   } catch (error) {
+
+    console.error(
+      "REGISTER ERROR:",
+      error
+    );
+
     next(error);
   }
 };
-
 // ==========================================
 // Login
 // ==========================================

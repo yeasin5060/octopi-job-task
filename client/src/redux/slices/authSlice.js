@@ -14,10 +14,11 @@ export const login = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const { data } = await api.post(
-        "/auth/login",
+        "/api/auth/login",
         credentials
       );
 
+      // Save authentication
       localStorage.setItem(
         "token",
         data.token
@@ -47,11 +48,14 @@ export const getMe = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const { data } = await api.get(
-        "/auth/me"
+        "/api/auth/me"
       );
 
       return data.user;
     } catch (error) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
       return rejectWithValue(
         error.response?.data?.message ||
           "Session expired"
@@ -69,7 +73,7 @@ export const register = createAsyncThunk(
   async (formData, { rejectWithValue }) => {
     try {
       const { data } = await api.post(
-        "/auth/register",
+        "/api/auth/register",
         formData
       );
 
@@ -92,7 +96,7 @@ export const forgotPassword = createAsyncThunk(
   async (email, { rejectWithValue }) => {
     try {
       const { data } = await api.post(
-        "/auth/forgot-password",
+        "/api/auth/forgot-password",
         { email }
       );
 
@@ -122,7 +126,9 @@ const authSlice = createSlice({
       localStorage.getItem("token") || null,
 
     loading: false,
+
     initialized: false,
+
     error: null,
   },
 
@@ -130,6 +136,7 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.token = null;
+      state.error = null;
 
       localStorage.removeItem("token");
       localStorage.removeItem("user");
@@ -143,56 +150,113 @@ const authSlice = createSlice({
   extraReducers: (builder) => {
     builder
 
-      // Login
-      .addCase(login.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      // ======================================
+      // LOGIN
+      // ======================================
 
-      .addCase(login.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-      })
+      .addCase(
+        login.pending,
+        (state) => {
+          state.loading = true;
+          state.error = null;
+        }
+      )
 
-      .addCase(login.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
+      .addCase(
+        login.fulfilled,
+        (state, action) => {
+          state.loading = false;
+          state.error = null;
 
-      // Get Me
-      .addCase(getMe.pending, (state) => {
-        state.loading = true;
-      })
+          state.user =
+            action.payload.user;
 
-      .addCase(getMe.fulfilled, (state, action) => {
-        state.loading = false;
-        state.initialized = true;
-        state.user = action.payload;
-      })
+          state.token =
+            action.payload.token;
 
-      .addCase(getMe.rejected, (state) => {
-        state.loading = false;
-        state.initialized = true;
-        state.user = null;
-      })
+          state.initialized = true;
+        }
+      )
 
-      // Register
-      .addCase(register.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(
+        login.rejected,
+        (state, action) => {
+          state.loading = false;
+          state.error = action.payload;
+        }
+      )
 
-      .addCase(register.fulfilled, (state) => {
-        state.loading = false;
-      })
+      // ======================================
+      // GET ME
+      // ======================================
 
-      .addCase(register.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
+      .addCase(
+        getMe.pending,
+        (state) => {
+          state.loading = true;
+        }
+      )
 
-      // Forgot Password
+      .addCase(
+        getMe.fulfilled,
+        (state, action) => {
+          state.loading = false;
+          state.initialized = true;
+          state.user = action.payload;
+          state.error = null;
+
+          localStorage.setItem(
+            "user",
+            JSON.stringify(
+              action.payload
+            )
+          );
+        }
+      )
+
+      .addCase(
+        getMe.rejected,
+        (state) => {
+          state.loading = false;
+          state.initialized = true;
+
+          state.user = null;
+          state.token = null;
+        }
+      )
+
+      // ======================================
+      // REGISTER
+      // ======================================
+
+      .addCase(
+        register.pending,
+        (state) => {
+          state.loading = true;
+          state.error = null;
+        }
+      )
+
+      .addCase(
+        register.fulfilled,
+        (state) => {
+          state.loading = false;
+          state.error = null;
+        }
+      )
+
+      .addCase(
+        register.rejected,
+        (state, action) => {
+          state.loading = false;
+          state.error = action.payload;
+        }
+      )
+
+      // ======================================
+      // FORGOT PASSWORD
+      // ======================================
+
       .addCase(
         forgotPassword.pending,
         (state) => {
@@ -205,6 +269,7 @@ const authSlice = createSlice({
         forgotPassword.fulfilled,
         (state) => {
           state.loading = false;
+          state.error = null;
         }
       )
 

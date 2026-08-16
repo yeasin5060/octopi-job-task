@@ -1,7 +1,8 @@
 import express from "express";
 
 import {
-  getStats,
+  createPlatformAdmin,
+  getDashboardStats,
   updateOrganizationStatus,
 } from "../controllers/admin.controller.js";
 
@@ -9,17 +10,25 @@ import {
   getAllTransactions,
 } from "../controllers/transaction.controller.js";
 
-import { authorize } from "../middlewares/role.middleware.js";
+import { authorize, requirePlatformAdmin } from "../middlewares/role.middleware.js";
 import { protect } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.use(
+
+router.post(
+  "/create",
   protect,
-  authorize("PLATFORM_ADMIN")
+  requirePlatformAdmin,
+  createPlatformAdmin
 );
 
-router.get("/stats", getStats);
+router.get(
+  "/stats",
+  protect,
+  requirePlatformAdmin,
+  getDashboardStats
+);
 
 router.patch(
   "/organizations/:id/status",

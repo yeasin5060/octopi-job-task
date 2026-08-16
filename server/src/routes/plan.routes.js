@@ -1,15 +1,15 @@
 import express from "express";
 
 import {
-  getPlans,
   createPlan,
-  updatePlan,
   disablePlan,
+  getPlans,
+  updatePlan,
 } from "../controllers/plan.controller.js";
 
 
 
-import { authorize } from "../middlewares/role.middleware.js";
+import { requirePlatformAdmin } from "../middlewares/role.middleware.js";
 import { protect } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -19,21 +19,21 @@ router.get("/", getPlans);
 router.post(
   "/",
   protect,
-  authorize("PLATFORM_ADMIN"),
+  requirePlatformAdmin,
   createPlan
 );
 
 router.patch(
   "/:id",
   protect,
-  authorize("PLATFORM_ADMIN"),
+  requirePlatformAdmin,
   updatePlan
 );
 
 router.patch(
   "/:id/disable",
   protect,
-  authorize("PLATFORM_ADMIN"),
+  requirePlatformAdmin,
   disablePlan
 );
 

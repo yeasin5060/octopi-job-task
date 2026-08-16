@@ -36,10 +36,8 @@ const pendingRegistrationSchema = new mongoose.Schema(
 
     stripeCheckoutSessionId: {
       type: String,
-      default: null,
       unique: true,
       sparse: true,
-      index: true,
     },
 
     expiresAt: {
@@ -52,7 +50,7 @@ const pendingRegistrationSchema = new mongoose.Schema(
   }
 );
 
-// Automatically remove expired pending registrations
+// TTL index
 pendingRegistrationSchema.index(
   { expiresAt: 1 },
   {

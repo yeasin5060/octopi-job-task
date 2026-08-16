@@ -7,7 +7,7 @@ import {
 } from "../controllers/member.controller.js";
 
 
-import { authorize } from "../middlewares/role.middleware.js";
+import { authorize, requireOrgAdmin } from "../middlewares/role.middleware.js";
 import { protect } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -15,21 +15,21 @@ const router = express.Router();
 router.get(
   "/",
   protect,
-  authorize("ORG_ADMIN"),
+  
   getMembers
 );
 
 router.patch(
   "/:id/role",
   protect,
-  authorize("ORG_ADMIN"),
+  requireOrgAdmin,
   updateMemberRole
 );
 
 router.delete(
   "/:id",
   protect,
-  authorize("ORG_ADMIN"),
+  requireOrgAdmin,
   removeMember
 );
 
