@@ -150,11 +150,7 @@ export const updateOrganization = async (req, res, next) => {
 // Get Organization Subscription
 // ==========================================
 
-export const getOrganizationSubscription = async (
-  req,
-  res,
-  next
-) => {
+export const getOrganizationSubscription = async ( req, res, next) => {
   try {
     const subscription =
       await Subscription.findOne({

@@ -1,11 +1,7 @@
 import { User } from "../models/user.model.js";
 
 
-export const getMembers = async (
-  req,
-  res,
-  next
-) => {
+export const getMembers = async ( req, res, next) => {
   try {
     const members = await User.find({
       organizationId: req.user.organizationId,
@@ -20,11 +16,7 @@ export const getMembers = async (
   }
 };
 
-export const updateMemberRole = async (
-  req,
-  res,
-  next
-) => {
+export const updateMemberRole = async ( req, res, next) => {
   try {
     const { role } = req.body;
 
@@ -65,11 +57,7 @@ export const updateMemberRole = async (
   }
 };
 
-export const removeMember = async (
-  req,
-  res,
-  next
-) => {
+export const removeMember = async ( req, res, next) => {
   try {
     const member = await User.findOneAndUpdate(
       {

@@ -345,11 +345,7 @@ export const me = async (req, res) => {
 // Forgot Password
 // ==========================================
 
-export const forgotPassword = async (
-  req,
-  res,
-  next
-) => {
+export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
 
@@ -417,11 +413,7 @@ export const forgotPassword = async (
 // Reset Password
 // ==========================================
 
-export const resetPassword = async (
-  req,
-  res,
-  next
-) => {
+export const resetPassword = async ( req, res, next) => {
   try {
     const { token } = req.params;
     const { password } = req.body;

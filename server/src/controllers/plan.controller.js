@@ -1,11 +1,7 @@
 import { Plan } from "../models/plan.model.js";
 
 
-export const getPlans = async (
-  req,
-  res,
-  next
-) => {
+export const getPlans = async ( req, res, next) => {
   try {
     const plans = await Plan.find({
       isActive: true,
@@ -20,11 +16,7 @@ export const getPlans = async (
   }
 };
 
-export const createPlan = async (
-  req,
-  res,
-  next
-) => {
+export const createPlan = async ( req, res, next) => {
   try {
     const plan = await Plan.create({
       name: req.body.name,
@@ -44,11 +36,7 @@ export const createPlan = async (
   }
 };
 
-export const updatePlan = async (
-  req,
-  res,
-  next
-) => {
+export const updatePlan = async ( req, res, next) => {
   try {
     const plan = await Plan.findByIdAndUpdate(
       req.params.id,
@@ -75,11 +63,7 @@ export const updatePlan = async (
   }
 };
 
-export const disablePlan = async (
-  req,
-  res,
-  next
-) => {
+export const disablePlan = async ( req, res, next) => {
   try {
     const plan = await Plan.findByIdAndUpdate(
       req.params.id,

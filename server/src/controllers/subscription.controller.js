@@ -6,11 +6,7 @@ import { Organization } from "../models/organization.model.js";
 // Get Current Subscription
 // ==========================================
 
-export const getCurrentSubscription = async (
-  req,
-  res,
-  next
-) => {
+export const getCurrentSubscription = async ( req, res, next) => {
   try {
     const organizationId =
       req.user.organizationId;
@@ -49,11 +45,7 @@ export const getCurrentSubscription = async (
 // Change Subscription
 // ==========================================
 
-export const changeSubscription = async (
-  req,
-  res,
-  next
-) => {
+export const changeSubscription = async ( req, res, next) => {
   try {
     const { planId } = req.body;
 

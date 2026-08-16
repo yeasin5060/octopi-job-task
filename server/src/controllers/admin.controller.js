@@ -8,19 +8,13 @@ import jwt from "jsonwebtoken";
 
 import bcrypt from "bcryptjs";
 
-
-
 // ==========================================
 // Create Platform Admin
 // ==========================================
 
 export const createPlatformAdmin = async (req, res, next) => {
     try {
-      const {
-        name,
-        email,
-        password,
-      } = req.body;
+      const {name,email,password,} = req.body;
 
       if (!name || !email || !password) {
         return res.status(400).json({
@@ -82,7 +76,6 @@ export const createPlatformAdmin = async (req, res, next) => {
       next(error);
     }
 };
-
 
 // ==========================================
 // Dashboard Stats
