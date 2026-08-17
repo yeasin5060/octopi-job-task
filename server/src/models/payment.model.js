@@ -1,5 +1,3 @@
-import mongoose from "mongoose";
-
 const paymentSchema = new mongoose.Schema(
   {
     organizationId: {
@@ -19,12 +17,14 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       unique: true,
       sparse: true,
+      default: undefined,
     },
 
     stripeCheckoutSessionId: {
       type: String,
       unique: true,
       sparse: true,
+      default: undefined,
     },
 
     amount: {
@@ -70,4 +70,7 @@ paymentSchema.index({
   createdAt: -1,
 });
 
-export const Payment = mongoose.model("Payment", paymentSchema);
+export const Payment = mongoose.model(
+  "Payment",
+  paymentSchema
+);

@@ -165,7 +165,7 @@ const Register = () => {
             <div>
 
               <label className="mb-2 block font-medium">
-                Admin Name
+                Name
               </label>
 
               <input

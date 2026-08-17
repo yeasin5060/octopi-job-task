@@ -29,7 +29,7 @@ const createPlatformAdmin = async () => {
       await bcrypt.hash(password, 12);
 
     const admin = await User.create({
-      name: "Platform Admin",
+      name: "Org Admin",
       email,
       password: hashedPassword,
       role: "ORG_ADMIN",
